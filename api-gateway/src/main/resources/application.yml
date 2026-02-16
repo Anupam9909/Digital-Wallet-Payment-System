@@ -1,0 +1,94 @@
+server:
+  port: 8080
+  # HTTP client limits for malformed/oversized requests
+  max-http-request-header-size: 8KB
+  netty:
+    max-initial-line-length: 4KB
+    connection-timeout: 20s
+
+spring:
+  application:
+    name: api-gateway
+
+  # WebFlux configuration for request body size
+  codec:
+    max-in-memory-size: 5MB
+
+  cloud:
+    gateway:
+      # Global filters for all routes
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+
+      # HTTP client configuration
+      httpclient:
+        max-header-size: 8192           # 8KB
+        max-initial-line-length: 4096   # 4KB
+      filters:
+        - name: RequestSize
+          args:
+            maxSize: 1MB
+
+      routes:
+        - id: user-service-auth
+          uri: http://localhost:8081
+          predicates:
+            - Path=/auth/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10    # 10 requests per second
+                redis-rate-limiter.burstCapacity: 20    # Burst capacity of 20
+                redis-rate-limiter.requestedTokens: 1   # 1 token per request
+
+        - id: user-service-api
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/users/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10    # 10 requests per second
+                redis-rate-limiter.burstCapacity: 20    # Burst capacity of 20
+                redis-rate-limiter.requestedTokens: 1   # 1 token per request
+
+        - id: transaction-service
+          uri: http://localhost:8082
+          predicates:
+            - Path=/api/transaction/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10    # 10 requests per second
+                redis-rate-limiter.burstCapacity: 20    # Burst capacity of 20
+                redis-rate-limiter.requestedTokens: 1   # 1 token per request
+
+        - id: notification-service
+          uri: http://localhost:8084
+          predicates:
+            - Path=/api/notify/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10    # 10 requests per second
+                redis-rate-limiter.burstCapacity: 20    # Burst capacity of 20
+                redis-rate-limiter.requestedTokens: 1   # 1 token per request
+
+
+        - id: reward-service
+          uri: http://localhost:8089
+          predicates:
+            - Path=/api/rewards/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10    # 10 requests per second
+                redis-rate-limiter.burstCapacity: 20    # Burst capacity of 20
+                redis-rate-limiter.requestedTokens: 1   # 1 token per request
+
+
+# Logging
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO
+    org.springframework.data.redis: INFO
